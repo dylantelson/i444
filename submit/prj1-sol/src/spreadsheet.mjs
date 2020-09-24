@@ -5,13 +5,23 @@ import { cellRefToCellId } from './util.mjs';
 //use for development only
 import { inspect } from 'util';
 
+class CellInfo {
+  constructor(id, expr, val, dep, ast) {
+    this.id = id;
+    this.expr = expr;
+    this.val = val;
+    this.dep = dep;
+    this.ast = ast;
+  }
+}
+
 export default class Spreadsheet {
 
   //factory method
   static async make() { return new Spreadsheet(); }
 
   constructor() {
-    //@TODO
+    this.cells = {}
   }
 
   /** Set cell with id baseCellId to result of evaluating formula
@@ -25,11 +35,44 @@ export default class Spreadsheet {
    */
   async eval(baseCellId, expr) {
     const updates = {};
-    //@TODO
-    return updates;
+    const updatesReturn = {};
+    const ast = parse(expr, baseCellId);
+    console.log(inspect(ast, false, Infinity));
+    //if (baseCellId in this.cells) {
+      //console.log("expr: " + expr);
+      //console.log("baseCellId: " + baseCellId);
+      //this.cells[baseCellId] = expr;a
+      //for (const prop in this.cells) {
+        //console.log(`${prop}: ${this.cells[prop]}`);
+      //}
+    //}
+    if(ast.type === "num") {
+      console.log("Number found!");
+      console.log("Number: " + ast.value);
+      updates[baseCellId] = new CellInfo(baseCellId, expr, ast.value, ast.kids, ast);
+      updatesReturn[baseCellId] = updates[baseCellId].val;
+    } else if(ast.type === "app") {
+      const result = this.performNumericalOperation(ast);
+
+      updatesReturn[baseCellId] = result;
+    }
+    return updatesReturn;
   }
 
-  //@TODO add methods
+  performNumericalOperation(ast) {
+    if(ast.type === "num") {
+      return ast.value;
+    } else if (ast.type === "app") {
+      if(ast.kids.length === 2) {
+        console.log("length 2");
+        return FNS[ast.fn](this.performNumericalOperation(ast.kids[0]), this.performNumericalOperation(ast.kids[1]));
+      } else if(ast.kids.length === 1) {
+        return FNS[ast.fn](0, this.performNumericalOperation(ast.kids[0]));
+      } else {
+        console.log("Apparently an app-ast can have something other than 1-2 kids");
+      }
+    }
+  }
 }
 
 //Map fn property of Ast type === 'app' to corresponding function.
