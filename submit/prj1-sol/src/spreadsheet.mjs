@@ -21,7 +21,7 @@ export default class Spreadsheet {
   static async make() { return new Spreadsheet(); }
 
   constructor() {
-    this.cells = {}
+    this.cells = {boy: "hi"};
   }
 
   /** Set cell with id baseCellId to result of evaluating formula
@@ -47,27 +47,47 @@ export default class Spreadsheet {
       //}
     //}
     if(ast.type === "num") {
-      console.log("Number found!");
-      console.log("Number: " + ast.value);
+      if(baseCellId in this.cells) {
+        this.clearAsDependent(this.cells[baseCellId].ast, baseCellId);
+      }
       updates[baseCellId] = new CellInfo(baseCellId, expr, ast.value, {}, ast);
       updatesReturn[baseCellId] = updates[baseCellId].val;
     } else if(ast.type === "app") {
+      if(baseCellId in this.cells) {
+        console.log("Found id! Will clear.");
+        this.clearAsDependent(this.cells[baseCellId].ast, baseCellId);
+      }
       const result = this.performNumericalOperation(ast, baseCellId);
       updates[baseCellId] = new CellInfo(baseCellId, expr, result, {}, ast);
       updatesReturn[baseCellId] = result;
+      this.addAsDependent(ast, baseCellId);
     } else {
       //it is a ref
+      if(baseCellId in this.cells) {
+        console.log("Clearing...");
+        this.clearAsDependent(this.cells[baseCellId].ast, baseCellId);
+      }
       const referencedID = cellRefToCellId(ast.toString(baseCellId));
       if(referencedID in this.cells) {
         updates[baseCellId] = new CellInfo(baseCellId, expr, this.cells[referencedID].val, {}, ast);
         updatesReturn[baseCellId] = updates[baseCellId].val;
       } else {
+        console.log("Making empty cell");
+        this.cells[referencedID] = new CellInfo(referencedID, "", 0, {baseCellId: true}, {});
         updates[baseCellId] = new CellInfo(baseCellId, expr, 0, {}, ast);
         updatesReturn[baseCellId] = updates[baseCellId].val;
       }
+      this.addAsDependent(ast, baseCellId);
     }
     for(const prop in updates) {
       this.cells[prop] = updates[prop];
+    }
+    if("a1" in this.cells) {
+      console.log("a1 dep: ");
+      for(const prop in this.cells.a1.dep) {
+        console.log(prop + ": " + this.cells.a1.dep[prop]);
+      }
+      console.log("Finished printing a1 dep.");
     }
     return updatesReturn;
   }
@@ -91,7 +111,48 @@ export default class Spreadsheet {
       if(referencedID in this.cells) {
         return this.cells[referencedID].val;
       } else {
+        console.log("Making empty cell");
+        this.cells[referencedID] = new CellInfo(referencedID, "", 0, {baseCellId: true}, {});
         return 0;
+      }
+    }
+  }
+
+  clearAsDependent(ast, baseCellId) {
+    if(Object.keys(ast).length == 0) return;
+    if(ast.type === "ref") {
+      const referencedID = cellRefToCellId(ast.toString(baseCellId));
+      console.log("Clearing " + baseCellId + " from " + referencedID);
+      //console.log("referenced id for clearing dep: " + referencedID);
+      delete this.cells[referencedID].dep[baseCellId];
+    } else {
+      console.log("CHECKING a9 AST:");
+      console.log(inspect(ast, false, Infinity));
+      if(ast.kids.length > 0) {
+        for (const kid of ast.kids) {
+          this.clearAsDependent(kid, baseCellId);
+        }
+      }
+    }
+    //console.log("a1 dep: " + this.cells.a1.dep);
+  }
+
+    addAsDependent(ast, baseCellId) {
+    if(ast.type === "ref") {
+      const referencedID = cellRefToCellId(ast.toString(baseCellId));
+      console.log("referenced id to add dep to: " + referencedID);
+      console.log("this.cells keys: " + Object.keys(this.cells));
+      console.log("ID latest: " + referencedID);
+      this.cells[referencedID].dep[baseCellId] = true;
+    } else {
+      console.log("In app section of addAsDep");
+      console.log("ast: ");
+      console.log(inspect(ast, false, Infinity));
+      if(ast.kids.length > 0) {
+        for (const kid of ast.kids) {
+          console.log("kid: " + kid);
+          this.addAsDependent(kid, baseCellId);
+        }
       }
     }
   }
