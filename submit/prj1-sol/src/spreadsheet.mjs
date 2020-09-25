@@ -49,27 +49,49 @@ export default class Spreadsheet {
     if(ast.type === "num") {
       console.log("Number found!");
       console.log("Number: " + ast.value);
-      updates[baseCellId] = new CellInfo(baseCellId, expr, ast.value, ast.kids, ast);
+      updates[baseCellId] = new CellInfo(baseCellId, expr, ast.value, {}, ast);
       updatesReturn[baseCellId] = updates[baseCellId].val;
     } else if(ast.type === "app") {
-      const result = this.performNumericalOperation(ast);
-
+      const result = this.performNumericalOperation(ast, baseCellId);
+      updates[baseCellId] = new CellInfo(baseCellId, expr, result, {}, ast);
       updatesReturn[baseCellId] = result;
+    } else {
+      //it is a ref
+      const referencedID = cellRefToCellId(ast.toString(baseCellId));
+      if(referencedID in this.cells) {
+        updates[baseCellId] = new CellInfo(baseCellId, expr, this.cells[referencedID].val, {}, ast);
+        updatesReturn[baseCellId] = updates[baseCellId].val;
+      } else {
+        updates[baseCellId] = new CellInfo(baseCellId, expr, 0, {}, ast);
+        updatesReturn[baseCellId] = updates[baseCellId].val;
+      }
+    }
+    for(const prop in updates) {
+      this.cells[prop] = updates[prop];
     }
     return updatesReturn;
   }
 
-  performNumericalOperation(ast) {
+  performNumericalOperation(ast, baseCellId) {
     if(ast.type === "num") {
       return ast.value;
     } else if (ast.type === "app") {
       if(ast.kids.length === 2) {
         console.log("length 2");
-        return FNS[ast.fn](this.performNumericalOperation(ast.kids[0]), this.performNumericalOperation(ast.kids[1]));
+        return FNS[ast.fn](this.performNumericalOperation(ast.kids[0], baseCellId), this.performNumericalOperation(ast.kids[1], baseCellId));
       } else if(ast.kids.length === 1) {
-        return FNS[ast.fn](0, this.performNumericalOperation(ast.kids[0]));
+        return FNS[ast.fn](0, this.performNumericalOperation(ast.kids[0], baseCellId));
       } else {
         console.log("Apparently an app-ast can have something other than 1-2 kids");
+      }
+    } else {
+      //it is a ref
+      const referencedID = cellRefToCellId(ast.toString(baseCellId));
+      console.log("referenced id: " + referencedID);
+      if(referencedID in this.cells) {
+        return this.cells[referencedID].val;
+      } else {
+        return 0;
       }
     }
   }
