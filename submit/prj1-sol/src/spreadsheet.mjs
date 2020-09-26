@@ -204,9 +204,27 @@ export default class Spreadsheet {
     }
   }
 
+  noDirectCircularDeps(ast, baseCellId) {
+    if(ast.type === "ref") {
+      if(cellRefToCellId(ast.toString(baseCellId)) === baseCellId) return false;
+    } else if(ast.type === "app") {
+      let noCircDeps = true;
+      for(const kid of ast.kids) {
+        if(this.noDirectCircularDeps(kid, baseCellId) === false) noCircDeps = false;
+      }
+      return noCircDeps;
+    } else {
+      return true;
+    }
+  }
+
   noCircularDeps(ast, baseCellId) {
     //console.log("Checking " + baseCellId);
     //console.log(inspect(ast, false, Infinity));
+
+    //first check direct circular dependency
+    if(this.noDirectCircularDeps(ast, baseCellId) === false) return false;
+
     if(ast.type === "ref") {
       const referencedID = cellRefToCellId(ast.toString(baseCellId));
       if(!(referencedID in this.cells)) return true;
