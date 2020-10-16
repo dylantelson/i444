@@ -30,7 +30,7 @@ export default class PersistentSpreadsheet {
       const mongo = require('mongodb').MongoClient;
       const client = await mongo.connect(dbUrl, MONGO_CONNECT_OPTIONS);
       const db = await client.db(spreadsheetName);
-      console.log("Connected!");
+      //console.log("Connected!");
       return new PersistentSpreadsheet(spreadsheetName, dbUrl, db, client);
     }
     catch (err) {
@@ -51,7 +51,7 @@ export default class PersistentSpreadsheet {
    *  Specifically, close any database connections.
    */
   async close() {
-    console.log("CLOSING!");
+    //console.log("CLOSING!");
     await this.client.close();
   }
   
@@ -74,8 +74,8 @@ export default class PersistentSpreadsheet {
         newValues,
         {upsert: true});
       //if(err) throw err;
-      console.log("Updated " + baseCellId + " in spreadsheet " + mySS);
-      console.log("testos");
+      //console.log("Updated " + baseCellId + " in spreadsheet " + mySS);
+      //console.log("testos");
       return results;
     }
     catch (err) {
@@ -97,15 +97,15 @@ export default class PersistentSpreadsheet {
   /** Clear contents of this spreadsheet */
   async clear() {
     try {
-      console.log("trying to clear " + this.spreadsheetName);
+      //console.log("trying to clear " + this.spreadsheetName);
       await this.db.collection(this.spreadsheetName).deleteMany( { } );
-      console.log("Cleared!");
+      //console.log("Cleared!");
+      return this.memSpreadsheet.clear();
     }
     catch (err) {
       const msg = `cannot drop collection ${this.spreadsheetName}: ${err}`;
       throw new AppError('DB', msg);
     }
-    /* @TODO delegate to in-memory spreadsheet */
   }
 
   /** Delete all info for cellId from this spreadsheet. Return an
@@ -118,9 +118,9 @@ export default class PersistentSpreadsheet {
     if(results === null) return;
     try {
       await this.db.collection(this.spreadsheetName).deleteOne(
-        {name: baseCellId}
+        {name: cellId}
         );
-        console.log("Deleted " + baseCellId);
+        //console.log("Deleted " + cellId);
     }
     catch (err) {
       //@TODO undo mem-spreadsheet operation

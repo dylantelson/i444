@@ -43,6 +43,21 @@ export default class MemSpreadsheet {
     }
   }
 
+  reEvalSelfAndChildren(cellId, resultsObj) {
+    if(cellId in this._cells) {
+      this.eval(cellId, this._cells[cellId].getFormula());
+      resultsObj[cellId] = this._cells[cellId].value;
+      if(this._cells[cellId].dependents.size > 0) {
+        const children = Array.from(this._cells[cellId].dependents);
+        //const children = this._cells[cellId].dependents;
+        for(const childId of children) {
+            this.reEvalSelfAndChildren(childId, resultsObj);
+        }
+      }
+    }
+    return;
+  }
+
   /** return object containing formula and value for cell cellId 
    *  return { value: 0, formula: '' } for an empty cell.
    */
@@ -69,9 +84,8 @@ export default class MemSpreadsheet {
    *  values.  
    */
   delete(cellId) {
-    //console.log("mem trying to delete cell " + cellId);
+    this._undos = {};
     if(!(cellId in this._cells)) {
-      console.log("Cell " + cellId + "does  not exist.");
       return null;
     }
     const children = this._cells[cellId].dependents;
@@ -80,10 +94,12 @@ export default class MemSpreadsheet {
       this._undos[cellId] = this._cells[cellId]?.copy();
     }
     delete this._cells[cellId];
-    for(const child of children) {
-      eval(child.id, child.getFormula());
+    let resultsObj = {};
+    for(const childId of children) {
+      //set the childId in results to the new value, returned by the reEvalSelfAndChildren function
+      this.reEvalSelfAndChildren(childId, resultsObj);
     }
-    return;
+    return resultsObj;
   }
 
   /** copy formula from srcCellId to destCellId, adjusting any
@@ -93,6 +109,13 @@ export default class MemSpreadsheet {
    */
   copy(destCellId, srcCellId) {
     this._undos = {};
+    if(srcCellId in this._cells) {
+      if(!(this._cells[srcCellId].isEmpty())) {
+        const srcAst = this._cells[srcCellId].ast;
+        const destFormula = srcAst.toString(destCellId);
+        this.eval(destCellId, destFormula);
+      }
+    }
     const results = {};
     //@TODO
     return results;
@@ -156,7 +179,6 @@ export default class MemSpreadsheet {
   // must update all cells using only this function to guarantee
   // recording undo information.
   _updateCell(cellId, updateFn) {
-    //console.log("updateFn = " + updateFn + ". cellId to delete is " + cellId);
     if (!(cellId in this._undos)) {
       this._undos[cellId] = this._cells[cellId]?.copy();
     }
