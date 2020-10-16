@@ -171,10 +171,41 @@ export default class MemSpreadsheet {
    *  Note that empty cells must be ignored during the topological
    *  sort.
    */
+   
+   //Used this website to help understand topological sort: https://www.tutorialspoint.com/Topological-sorting-using-Javascript-DFS
   dump() {
     const prereqs = this._makePrereqs();
-    //@TODO
-    return [];
+    console.log("dumpin");
+    
+    let cellStack = new Array();
+    let explored = new Set();
+    for(const cell in prereqs) {
+      console.log("Cell: " + cell);
+      if(!explored.has(cell)) {
+        this.topSort(cell, explored, cellStack, prereqs);
+      }
+    }
+    console.log(cellStack.length);
+    
+    let resultArr = [];
+    while (cellStack.length > 0) {
+      const currCell = cellStack.pop();
+      resultArr.unshift([currCell, this._cells[currCell].getFormula()]);
+    }
+  
+    return resultArr;
+  }
+  
+  topSort(cell, explored, cellStack, prereqs) {
+    explored.add(cell);
+    prereqs[cell].sort();
+    prereqs[cell].forEach(prereq => {
+      if(!explored.has(prereq)) {
+        this.topSort(prereq, explored, cellStack, prereqs);
+      }
+    });
+    cellStack.push(cell);
+    
   }
 
   /** undo all changes since last operation */
