@@ -157,6 +157,7 @@ export default async function go() {
     }
     else {
       const results = await cmd.doIt(spreadsheet, cmdArgs);
+      console.log("awaited.");
       if (results !== undefined) console.log(JSON.stringify(results, null, 2));
     }
   }

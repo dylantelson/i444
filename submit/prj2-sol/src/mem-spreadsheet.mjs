@@ -47,14 +47,21 @@ export default class MemSpreadsheet {
    *  return { value: 0, formula: '' } for an empty cell.
    */
   query(cellId) {
-    //@TODO
-    return { };
+    if(cellId in this._cells) {
+      if(this._cells[cellId].isEmpty()) {
+       return {value: 0, formula: ''};
+      } else{
+        return {value: this._cells[cellId].value, formula: this._cells[cellId].getFormula()};
+      }
+    } else {
+      return {value: 0, formula: ''};
+      }
   }
 
   /** Clear contents of this spreadsheet. No undo information recorded. */
   clear() {
     this._undos = {};
-    //@TODO
+    this._cells = {};
   }
 
   /** Delete all info for cellId from this spreadsheet. Return an
@@ -62,10 +69,21 @@ export default class MemSpreadsheet {
    *  values.  
    */
   delete(cellId) {
-    this._undos = {};
-    const results = {};
-    //@TODO
-    return results;
+    //console.log("mem trying to delete cell " + cellId);
+    if(!(cellId in this._cells)) {
+      console.log("Cell " + cellId + "does  not exist.");
+      return null;
+    }
+    const children = this._cells[cellId].dependents;
+    //this._updateCell(cellId, cell => delete this._cells[cell]);
+    if (!(cellId in this._undos)) {
+      this._undos[cellId] = this._cells[cellId]?.copy();
+    }
+    delete this._cells[cellId];
+    for(const child of children) {
+      eval(child.id, child.getFormula());
+    }
+    return;
   }
 
   /** copy formula from srcCellId to destCellId, adjusting any
@@ -138,6 +156,7 @@ export default class MemSpreadsheet {
   // must update all cells using only this function to guarantee
   // recording undo information.
   _updateCell(cellId, updateFn) {
+    //console.log("updateFn = " + updateFn + ". cellId to delete is " + cellId);
     if (!(cellId in this._undos)) {
       this._undos[cellId] = this._cells[cellId]?.copy();
     }
@@ -212,7 +231,7 @@ class CellInfo {
   }
 
   //formula computed on the fly from the ast
-  get formula() { return this.ast ? this.ast.toString(this.id) : ''; }
+  getFormula() { return this.ast ? this.ast.toString(this.id) : ''; }
 
   //empty if no ast (equivalently, the formula is '').
   isEmpty() { return !this.ast; }

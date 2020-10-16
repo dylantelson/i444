@@ -9,7 +9,8 @@ import mongo from 'mongodb';
 //use in mongo.connect() to avoid warning
 const MONGO_CONNECT_OPTIONS = { useUnifiedTopology: true };
 
-
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 /**
  * User errors must be reported by throwing a suitable
@@ -26,55 +27,79 @@ export default class PersistentSpreadsheet {
   //factory method
   static async make(dbUrl, spreadsheetName) {
     try {
-      //@TODO set up database info, including reading data
+      const mongo = require('mongodb').MongoClient;
+      const client = await mongo.connect(dbUrl, MONGO_CONNECT_OPTIONS);
+      const db = await client.db(spreadsheetName);
+      console.log("Connected!");
+      return new PersistentSpreadsheet(spreadsheetName, dbUrl, db, client);
     }
     catch (err) {
       const msg = `cannot connect to URL "${dbUrl}": ${err}`;
       throw new AppError('DB', msg);
     }
-    return new PersistentSpreadsheet(/* @TODO params */);
   }
-
-  constructor(/* @TODO params */) {
-    //@TODO
+  constructor(spreadsheetName, dbUrl, db, client) {
+    this.spreadsheetName = spreadsheetName;
+    this.dbUrl = dbUrl;
+    this.db = db;
+    this.client = client;
+    this.memSpreadsheet = new MemSpreadsheet();
   }
+  
 
   /** Release all resources held by persistent spreadsheet.
    *  Specifically, close any database connections.
    */
   async close() {
-    //@TODO
+    console.log("CLOSING!");
+    await this.client.close();
   }
+  
+  
 
   /** Set cell with id baseCellId to result of evaluating string
    *  formula.  Update all cells which are directly or indirectly
    *  dependent on the base cell.  Return an object mapping the id's
    *  of all dependent cells to their updated values.
    */
-  async eval(baseCellId, formula) {
-    const results = /* @TODO delegate to in-memory spreadsheet */ {}; 
+  async eval(baseCellId, myformula) {
+    const results = this.memSpreadsheet.eval(baseCellId, myformula);
+    const myQuery = {name: baseCellId};
+    const mySS = this.spreadsheetName;
+    var newValues = { $set: {formula: myformula } };
     try {
-      //@TODO
+      //const client = await mongo.connect(this.dbUrl, MONGO_CONNECT_OPTIONS);
+      await this.db.collection(this.spreadsheetName).updateOne(
+        myQuery,
+        newValues,
+        {upsert: true});
+      //if(err) throw err;
+      console.log("Updated " + baseCellId + " in spreadsheet " + mySS);
+      console.log("testos");
+      return results;
     }
     catch (err) {
       //@TODO undo mem-spreadsheet operation
       const msg = `cannot update "${baseCellId}: ${err}`;
       throw new AppError('DB', msg);
+      return null;
     }
-    return results;
+    //console.log("returning");
   }
 
   /** return object containing formula and value for cell cellId 
    *  return { value: 0, formula: '' } for an empty cell.
    */
   async query(cellId) {
-    return /* @TODO delegate to in-memory spreadsheet */ {}; 
+    return this.memSpreadsheet.query(cellId); 
   }
 
   /** Clear contents of this spreadsheet */
   async clear() {
     try {
-      //@TODO
+      console.log("trying to clear " + this.spreadsheetName);
+      await this.db.collection(this.spreadsheetName).deleteMany( { } );
+      console.log("Cleared!");
     }
     catch (err) {
       const msg = `cannot drop collection ${this.spreadsheetName}: ${err}`;
@@ -89,9 +114,13 @@ export default class PersistentSpreadsheet {
    */
   async delete(cellId) {
     let results;
-    results = /* @TODO delegate to in-memory spreadsheet */ {}; 
+    results = this.memSpreadsheet.delete(cellId); 
+    if(results === null) return;
     try {
-      //@TODO
+      await this.db.collection(this.spreadsheetName).deleteOne(
+        {name: baseCellId}
+        );
+        console.log("Deleted " + baseCellId);
     }
     catch (err) {
       //@TODO undo mem-spreadsheet operation
