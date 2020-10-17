@@ -25,6 +25,7 @@ const require = createRequire(import.meta.url);
 export default class PersistentSpreadsheet {
 
   //factory method
+  //connects to database, gets all data for persistance (will be transferred to memSpreadsheet), and calls the constructor
   static async make(dbUrl, spreadsheetName) {
     try {
       const mongo = require('mongodb').MongoClient;
@@ -38,6 +39,7 @@ export default class PersistentSpreadsheet {
       throw new AppError('DB', msg);
     }
   }
+  //The constructor keeps data for the name, URL, database, client, memSpreadsheet, data, and a boolean to see whether the previous persistant data has transferred to the memSpreadsheet yet. Could not figure out how to transfer here- always got errors when trying to call memSpreadsheet.eval() within this or even when calling another function from here, so I put it into dump() with the bool to check whether it's still valid or not.
   constructor(spreadsheetName, dbUrl, db, client, data) {
     this.spreadsheetName = spreadsheetName;
     this.dbUrl = dbUrl;
@@ -52,7 +54,6 @@ export default class PersistentSpreadsheet {
    *  Specifically, close any database connections.
    */
   async close() {
-    //console.log("CLOSING!");
     await this.client.close();
   }
   
@@ -64,6 +65,7 @@ export default class PersistentSpreadsheet {
    *  of all dependent cells to their updated values.
    */
   async eval(baseCellId, myformula) {
+    //Get the results of eval from memSpreadsheet, then update the database collection. If there is an error, call undo() in memSpreadsheet.
     const results = this.memSpreadsheet.eval(baseCellId, myformula);
     const myQuery = {name: baseCellId};
     const mySS = this.spreadsheetName;
@@ -74,23 +76,20 @@ export default class PersistentSpreadsheet {
         myQuery,
         newValues,
         {upsert: true});
-      //if(err) throw err;
-      //console.log("Updated " + baseCellId + " in spreadsheet " + mySS);
-      //console.log("testos");
       return results;
     }
     catch (err) {
-      //@TODO undo mem-spreadsheet operation
+      this.memSpreadsheet.undo();
       const msg = `cannot update "${baseCellId}: ${err}`;
       throw new AppError('DB', msg);
       return null;
     }
-    //console.log("returning");
   }
 
   /** return object containing formula and value for cell cellId 
    *  return { value: 0, formula: '' } for an empty cell.
    */
+   //Just a wrapper function
   async query(cellId) {
     return this.memSpreadsheet.query(cellId); 
   }
@@ -98,10 +97,10 @@ export default class PersistentSpreadsheet {
   /** Clear contents of this spreadsheet */
   async clear() {
     try {
+      //If clear is called, we want to make sure we don't end up adding in persistent data that may still be waiting to be inserted to the memSpreadsheet, so we set hasTransferred to true (transferring occurs in dump() if this is set to false)
       this.hasTransferred = true;
-      console.log("trying to clear " + this.spreadsheetName);
+      //delete all documents in this spreadsheet collection, get memSpreadsheet to clear its data
       await this.db.collection(this.spreadsheetName).deleteMany( { } );
-      console.log("Cleared!");
       return this.memSpreadsheet.clear();
     }
     catch (err) {
@@ -116,13 +115,14 @@ export default class PersistentSpreadsheet {
    */
   async delete(cellId) {
     let results;
-    results = this.memSpreadsheet.delete(cellId); 
+    //Get the memSpreadsheet to delete the cell, then delete it in the database.
+    results = this.memSpreadsheet.delete(cellId);
+    //If the deleting did not actually change anything (meaning the cell already didn't exist), just return. 
     if(results === null) return;
     try {
       await this.db.collection(this.spreadsheetName).deleteOne(
         {name: cellId}
         );
-        //console.log("Deleted " + cellId);
     }
     catch (err) {
       //@TODO undo mem-spreadsheet operation
@@ -139,10 +139,12 @@ export default class PersistentSpreadsheet {
    */
   async copy(destCellId, srcCellId) {
     const srcFormula = this.memSpreadsheet._cells[srcCellId]?.getFormula();
+    //If the source formula does not exist, we can just delete the destination cell.
     if (!srcFormula) {
       return await this.delete(destCellId);
     }
     else {
+      //Get the copy results from the memSpreadsheet. Then, update the database. If anything goes wrong, catch the error and tell memSpreadsheet to undo the changes.
       try {
 	const results = this.memSpreadsheet.copy(destCellId, srcCellId);
 	for(const updatedCell in results) {
@@ -152,6 +154,7 @@ export default class PersistentSpreadsheet {
           await this.db.collection(this.spreadsheetName).updateOne(
             myQuery,
             newValues,
+            //this upsert makes it create a document rather than update if the document does not already exist
             {upsert: true});
 	}
 	return results;
@@ -163,28 +166,12 @@ export default class PersistentSpreadsheet {
     }
   }
 
-  /** Return dump of cell values as list of cellId and formula pairs.
-   *  Do not include any cell's with empty formula.
-   *
-   *  Returned list must be sorted by cellId with primary order being
-   *  topological (cell A < cell B when B depends on A) and secondary
-   *  order being lexicographical (when cells have no dependency
-   *  relation). 
-   *
-   *  Specifically, the cells must be dumped in a non-decreasing depth
-   *  order:
-   *     
-   *    + The depth of a cell with no dependencies is 0.
-   *
-   *    + The depth of a cell C with direct prerequisite cells
-   *      C1, ..., Cn is max(depth(C1), .... depth(Cn)) + 1.
-   *
-   *  Cells having the same depth must be sorted in lexicographic order
-   *  by their IDs.
-   *
-   *  Note that empty cells must be ignored during the topological
-   *  sort.
-   */
+  //If the data that should have persisted from before has not been transferred into the memSpreadsheet yet, do it now.
+    //The reason I do it here is it was impossible to get it work from the constructor, it would give really strange errors.
+    //This ensures all data persists before dumping the data.
+    //this.data is where the data was stored in the make() function.
+    //After this, it just calls the function in memSpreadsheet, which takes care of the sorting and such.
+    //Returns all of the cells, sorted topologically and lexicographically.
   async dump() {
     if(this.hasTransferred === false) {
       for(let i = 0; i < this.data.length; i++) {

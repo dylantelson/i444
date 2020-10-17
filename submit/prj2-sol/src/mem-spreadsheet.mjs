@@ -43,21 +43,16 @@ export default class MemSpreadsheet {
     }
   }
 
+
+  //Recurvise function to evaluate all cells that may be modified. Evaluates the cell calling this.eval(), then evaluates all dependents (which I call children) which may have a new value as a result of the current cell's re-evaluation.
   reEvalSelfAndChildren(cellId, resultsObj) {
     if(cellId in this._cells) {
-      //console.log(cellId + " reevalling.");
-      //console.log("currVal: " + this._cells[cellId].value);
       this.eval(cellId, this._cells[cellId].getFormula());
       resultsObj[cellId] = this._cells[cellId].value;
-      //console.log("currVal: " + this._cells[cellId].value);
       const children = Array.from(this._cells[cellId].dependents);
-      //console.log("Children length for " + cellId + ": " + children.length);
+      //if this cell has dependents, call this function on each dependent
       if(this._cells[cellId].dependents.size > 0) {
-        //const children = Array.from(this._cells[cellId].dependents);
-        //console.log("Children length for " + cellId + ": " + children.length);
-        //const children = this._cells[cellId].dependents;
         for(const childId of children) {
-          //console.log(cellId + " sending its child " + childId + " to reeval.");
           this.reEvalSelfAndChildren(childId, resultsObj);
         }
       }
@@ -90,6 +85,8 @@ export default class MemSpreadsheet {
    *  object mapping the id's of all dependent cells to their updated
    *  values.  
    */
+   
+   //Makes an object called resultsObj, which will have any updated values of dependents called in the function reEvalSelfAndChildren().
   delete(cellId) {
     this._undos = {};
     if(!(cellId in this._cells)) {
@@ -114,34 +111,32 @@ export default class MemSpreadsheet {
    *  id's of all dependent cells to their updated values. Copying
    *  an empty cell is equivalent to deleting the destination cell.
    */
+   
+   //Uses same resultsObj idea and reEvalSelfAndChildren function as the delete function.
   copy(destCellId, srcCellId) {
     this._undos = {};
     let resultsObj = {};
     try {
       if(srcCellId in this._cells) {
         if(!(this._cells[srcCellId].isEmpty())) {
-          //console.log("copying!");
+        //if not empty, copy the source cell into the destination cell and call the recursive function to ensure all cells are updated correctly, and store all changes in resultsObj which will then be returned
           const srcAst = this._cells[srcCellId].ast;
           const destFormula = srcAst.toString(destCellId);
           this.eval(destCellId, destFormula);
           resultsObj[destCellId] = this._cells[destCellId].value;
-          //console.log("Updated val: " + resultsObj[destCellId]);
           const children = Array.from(this._cells[destCellId].dependents);
         
-          //console.log("Children length for " + destCellId + ": " + children.length);
-        
           for(const childId of children) {
-            //console.log(destCellId + "setting its child " + childId + " to reeval.");
             //set the childId in results to the new value, returned by the reEvalSelfAndChildren function
             this.reEvalSelfAndChildren(childId, resultsObj);
           }
         } else {
+          //if source cell is empty, copying is same as deleting, so delete
           return this.delete(destCellId);
         }
       } else {
-       // console.log("Source cell doesn't exist!");
+        //if source cell doesn't exist, copying is same as deleting, so delete
         return this.delete(destCellId);
-        return {};
       }
       return resultsObj;
     } catch(err) {
@@ -176,18 +171,17 @@ export default class MemSpreadsheet {
    //Used this website to help understand topological sort: https://www.tutorialspoint.com/Topological-sorting-using-Javascript-DFS
   dump() {
     const prereqs = this._makePrereqs();
-    //console.log("dumpin");
     
+    //make a new stack (using Array()). Keep track of which cells have already been explored. For each cell, if it has not yet been explored, call topSort() to topologically sort it with all of its dependents, and store them in cellStack.
     let cellStack = new Array();
     let explored = new Set();
     for(const cell in prereqs) {
-      //console.log("Cell: " + cell);
       if(!explored.has(cell)) {
         this.topSort(cell, explored, cellStack, prereqs);
       }
     }
-    //console.log(cellStack.length);
     
+    //After all cells have been explored and sorted (stored in cellStack), pop each cell from cellStack into the front of the result array resultArr with the form [cellId, cellFormula]. Return the result array
     let resultArr = [];
     while (cellStack.length > 0) {
       const currCell = cellStack.pop();
@@ -197,6 +191,7 @@ export default class MemSpreadsheet {
     return resultArr;
   }
   
+  //helper function for topological sorting. Sort the children alphabetically for the secondary lexicographic sorting, then call this function on each child. This is making sure each child is added only after the current cell.
   topSort(cell, explored, cellStack, prereqs) {
     explored.add(cell);
     prereqs[cell].sort();
