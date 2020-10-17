@@ -15,7 +15,7 @@ import { cellRefToCellId } from './util.mjs';
 // names of private (not to be used outside this class) methods/properties 
 // start with an '_'.
 export default class MemSpreadsheet {
-
+  
   constructor() {
     this._cells = {};  //map from cellIds to CellInfo objects
     this._undos = {};  //map from cellIds to previous this._cells[cellId]
@@ -45,19 +45,19 @@ export default class MemSpreadsheet {
 
   reEvalSelfAndChildren(cellId, resultsObj) {
     if(cellId in this._cells) {
-      console.log(cellId + " reevalling.");
-      console.log("currVal: " + this._cells[cellId].value);
+      //console.log(cellId + " reevalling.");
+      //console.log("currVal: " + this._cells[cellId].value);
       this.eval(cellId, this._cells[cellId].getFormula());
       resultsObj[cellId] = this._cells[cellId].value;
-      console.log("currVal: " + this._cells[cellId].value);
+      //console.log("currVal: " + this._cells[cellId].value);
       const children = Array.from(this._cells[cellId].dependents);
-      console.log("Children length for " + cellId + ": " + children.length);
+      //console.log("Children length for " + cellId + ": " + children.length);
       if(this._cells[cellId].dependents.size > 0) {
         //const children = Array.from(this._cells[cellId].dependents);
-        console.log("Children length for " + cellId + ": " + children.length);
+        //console.log("Children length for " + cellId + ": " + children.length);
         //const children = this._cells[cellId].dependents;
         for(const childId of children) {
-          console.log(cellId + " sending its child " + childId + " to reeval.");
+          //console.log(cellId + " sending its child " + childId + " to reeval.");
           this.reEvalSelfAndChildren(childId, resultsObj);
         }
       }
@@ -117,36 +117,37 @@ export default class MemSpreadsheet {
   copy(destCellId, srcCellId) {
     this._undos = {};
     let resultsObj = {};
-    if(srcCellId in this._cells) {
-      if(!(this._cells[srcCellId].isEmpty())) {
-        console.log("copying!");
-        const srcAst = this._cells[srcCellId].ast;
-        const destFormula = srcAst.toString(destCellId);
-        this.eval(destCellId, destFormula);
-        resultsObj[destCellId] = this._cells[destCellId].value;
-        console.log("Updated val: " + resultsObj[destCellId]);
-        const children = Array.from(this._cells[destCellId].dependents);
+    try {
+      if(srcCellId in this._cells) {
+        if(!(this._cells[srcCellId].isEmpty())) {
+          //console.log("copying!");
+          const srcAst = this._cells[srcCellId].ast;
+          const destFormula = srcAst.toString(destCellId);
+          this.eval(destCellId, destFormula);
+          resultsObj[destCellId] = this._cells[destCellId].value;
+          //console.log("Updated val: " + resultsObj[destCellId]);
+          const children = Array.from(this._cells[destCellId].dependents);
         
-        console.log("Children length for " + destCellId + ": " + children.length);
+          //console.log("Children length for " + destCellId + ": " + children.length);
         
-        for(const childId of children) {
-          console.log(destCellId + "setting its child " + childId + " to reeval.");
-          //set the childId in results to the new value, returned by the reEvalSelfAndChildren function
-          this.reEvalSelfAndChildren(childId, resultsObj);
+          for(const childId of children) {
+            //console.log(destCellId + "setting its child " + childId + " to reeval.");
+            //set the childId in results to the new value, returned by the reEvalSelfAndChildren function
+            this.reEvalSelfAndChildren(childId, resultsObj);
+          }
+        } else {
+          return this.delete(destCellId);
         }
       } else {
+       // console.log("Source cell doesn't exist!");
         return this.delete(destCellId);
+        return {};
       }
-    } else {
-      console.log("Source cell doesn't exist!");
-      return this.delete(destCellId);
-      return {};
+      return resultsObj;
+    } catch(err) {
+      this.undo();
+      throw err;
     }
-    //this._updateCell(cellId, cell => delete this._cells[cell]);
-    //if (!(cellId in this._undos)) {
-    //  this._undos[cellId] = this._cells[cellId]?.copy();
-    //}
-    return resultsObj;
   }
 
   /** Return dump of cell values as list of cellId and formula pairs.
@@ -175,17 +176,17 @@ export default class MemSpreadsheet {
    //Used this website to help understand topological sort: https://www.tutorialspoint.com/Topological-sorting-using-Javascript-DFS
   dump() {
     const prereqs = this._makePrereqs();
-    console.log("dumpin");
+    //console.log("dumpin");
     
     let cellStack = new Array();
     let explored = new Set();
     for(const cell in prereqs) {
-      console.log("Cell: " + cell);
+      //console.log("Cell: " + cell);
       if(!explored.has(cell)) {
         this.topSort(cell, explored, cellStack, prereqs);
       }
     }
-    console.log(cellStack.length);
+    //console.log(cellStack.length);
     
     let resultArr = [];
     while (cellStack.length > 0) {

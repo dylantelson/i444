@@ -30,22 +30,23 @@ export default class PersistentSpreadsheet {
       const mongo = require('mongodb').MongoClient;
       const client = await mongo.connect(dbUrl, MONGO_CONNECT_OPTIONS);
       const db = await client.db(spreadsheetName);
-      //console.log("Connected!");
-      return new PersistentSpreadsheet(spreadsheetName, dbUrl, db, client);
+      const data = await db.collection(spreadsheetName).find({}).toArray();
+      return new PersistentSpreadsheet(spreadsheetName, dbUrl, db, client, data);
     }
     catch (err) {
       const msg = `cannot connect to URL "${dbUrl}": ${err}`;
       throw new AppError('DB', msg);
     }
   }
-  constructor(spreadsheetName, dbUrl, db, client) {
+  constructor(spreadsheetName, dbUrl, db, client, data) {
     this.spreadsheetName = spreadsheetName;
     this.dbUrl = dbUrl;
     this.db = db;
     this.client = client;
     this.memSpreadsheet = new MemSpreadsheet();
+    this.data = data;
+    this.hasTransferred = false;
   }
-  
 
   /** Release all resources held by persistent spreadsheet.
    *  Specifically, close any database connections.
@@ -97,9 +98,10 @@ export default class PersistentSpreadsheet {
   /** Clear contents of this spreadsheet */
   async clear() {
     try {
-      //console.log("trying to clear " + this.spreadsheetName);
+      this.hasTransferred = true;
+      console.log("trying to clear " + this.spreadsheetName);
       await this.db.collection(this.spreadsheetName).deleteMany( { } );
-      //console.log("Cleared!");
+      console.log("Cleared!");
       return this.memSpreadsheet.clear();
     }
     catch (err) {
@@ -136,21 +138,28 @@ export default class PersistentSpreadsheet {
    *  an empty cell is equivalent to deleting the destination cell.
    */
   async copy(destCellId, srcCellId) {
-    const srcFormula = /* @TODO get formula by querying mem-spreadsheet */ '';
+    const srcFormula = this.memSpreadsheet._cells[srcCellId]?.getFormula();
     if (!srcFormula) {
       return await this.delete(destCellId);
     }
     else {
-      const results = /* @TODO delegate to in-memory spreadsheet */ {}; 
       try {
-	//@TODO
+	const results = this.memSpreadsheet.copy(destCellId, srcCellId);
+	for(const updatedCell in results) {
+	  const myQuery = {name: updatedCell};
+          const mySS = this.spreadsheetName;
+          var newValues = { $set: {formula: this.memSpreadsheet._cells[updatedCell].getFormula() } };
+          await this.db.collection(this.spreadsheetName).updateOne(
+            myQuery,
+            newValues,
+            {upsert: true});
+	}
+	return results;
       }
       catch (err) {
-	//@TODO undo mem-spreadsheet operation
-	const msg = `cannot update "${destCellId}: ${err}`;
-	throw new AppError('DB', msg);
+	this.memSpreadsheet.undo();
+	throw err;
       }
-      return results;
     }
   }
 
@@ -177,7 +186,14 @@ export default class PersistentSpreadsheet {
    *  sort.
    */
   async dump() {
-    return /* @TODO delegate to in-memory spreadsheet */ []; 
+    if(this.hasTransferred === false) {
+      for(let i = 0; i < this.data.length; i++) {
+        const doc = this.data[i];
+        this.memSpreadsheet.eval(doc.name, String(doc.formula));
+      }
+      this.hasTransferred = true;
+    }
+    return this.memSpreadsheet.dump();
   }
 
 }

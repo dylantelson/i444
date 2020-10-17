@@ -237,6 +237,7 @@ function doCommonTests() {
 
   it ('must dump empty spreadsheet', async function() {
     const ss = spreadsheet;
+    ss.clear();
     const results = await ss.dump();
     assert.deepEqual(results, []);
   });
