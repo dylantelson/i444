@@ -45,13 +45,29 @@ const STORE = 'store';
 
 function setupRoutes(app) {
   app.use(cors(CORS_OPTIONS));  //needed for future projects
-  //@TODO add routes to handlers
+  //app.get("/api/store/:SS_NAME", retrieveData(app));
+  app.use(function(req, res, next) {
+    console.log(`Requested ${req.originalUrl}`);
+    next();
+  });
+  app.get("/api/store/:SS_NAME", (req, res) => {
+    //res.send("Do not care about " + req.params.SS_NAME);
+    res.send(app.locals.ssStore.readFormulas(req.params.SS_NAME));
+  });
+  app.put("/api/store/:SS_NAME", bodyParser.json(), (req, res) => {
+    //res.send("Do not care about " + req.params.SS_NAME);
+    res.json({result: app.locals.ssStore.readFormulas(req.params.SS_NAME)});
+  });
 }
 
 /****************************** Handlers *******************************/
-
 //@TODO
 
+function retrieveData(app) {
+  app.use("/api/store/:SS_NAME", (req, res) => {
+    res.send("Do not care about " + req.params.SS_NAME);
+  });
+}
 /** Default handler for when there is no route for a particular method
  *  and path.
  */
