@@ -31,7 +31,9 @@ export default class SSClient {
     /** Update cellId for spreadsheet ssName to contain formula */
   async updateCell(ssName, cellId, formula) {
     try {
-      //@TODO
+      await this.axios.patch(`${BASE}/${ssName}/${cellId}`, {
+      	  formula: formula
+      	});
     }
     catch (err) {
       rethrow(err);
@@ -42,7 +44,7 @@ export default class SSClient {
   /** Clear contents of spreadsheet ssName */
   async clear(ssName) {
     try {
-      //@TODO
+      await this.axios.delete(`${BASE}/${ssName}`);
     }
     catch (err) {
       rethrow(err);
@@ -53,7 +55,7 @@ export default class SSClient {
   /** Delete all info for cellId from spreadsheet ssName. */
   async delete(ssName, cellId) {
     try {
-      //@TODO
+      await this.axios.delete(`${BASE}/${ssName}/${cellId}`);
     }
     catch (err) {
       rethrow(err);
@@ -63,7 +65,9 @@ export default class SSClient {
   /** Return list of pairs of cellId, formula for spreadsheet ssName */
   async readFormulas(ssName) {
     try {
-      //@TODO
+    //const pairs = {};
+      return await this.axios.get(`${BASE}/${ssName}`)
+      .then((response) => response.data);
     }
     catch (err) {
       rethrow(err);
