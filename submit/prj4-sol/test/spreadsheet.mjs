@@ -4,7 +4,7 @@ import SSClient from '../src/ss-client.mjs';
 import chai from 'chai';
 const { assert } = chai;
 
-const URL = 'http://zdu.binghamton.edu:2345';
+const URL = 'localhost:2346';
 const SS_NAME = 'dtelson1ss';
 
 describe.only('web-spreadsheet', function() {

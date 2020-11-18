@@ -42,7 +42,9 @@ export default function serve(port, store) {
 function setupRoutes(app) {
   app.use(bodyParser.urlencoded({extended: true}));
   
-  //@TODO add routes
+  app.get("/", introPage(app));
+  app.get(`/ss/:ssName`, ssGet(app));
+  app.post("/ss/:ssName", introSubmit(app));
   //must be last
   app.use(do404(app));
   app.use(doErrors(app));
@@ -50,6 +52,25 @@ function setupRoutes(app) {
 }
 
 //@TODO add handlers
+
+function introPage(app) {
+    return async function(req, res) {
+        res.send(app.locals.mustache.render('intro', {intro: [{msg: "Hello World", }] }));
+  };
+}
+
+function ssGet(app) {
+    return async function(req, res) {
+         res.send(app.locals.mustache.render('intro', {intro: [{msg: "Hello World", }] }));
+  };
+}
+
+function introSubmit(app) {
+    return async function(req, res) {
+    	res.redirect(`/ss/${req.body["ssName"]}`);
+    	//app.get(`/ss/${req.body["ssName"]}`);
+    }
+}
 
 /** Default handler for when there is no route for a particular method
  *  and path.
