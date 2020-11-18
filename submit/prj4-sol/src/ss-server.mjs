@@ -21,6 +21,8 @@ const NOT_FOUND = 404;
 const CONFLICT = 409;
 const SERVER_ERROR = 500;
 
+let currSS = "testSpreadsheet";
+
 const __dirname = Path.dirname(new URL(import.meta.url).pathname);
 
 export default function serve(port, store) {
@@ -44,7 +46,8 @@ function setupRoutes(app) {
   
   app.get("/", introPage(app));
   app.get(`/ss/:ssName`, ssGet(app));
-  app.post("/ss/:ssName", introSubmit(app));
+  app.post("/", introSubmit(app));
+  app.post("/ss/:ssName", ssUpdate(app));
   //must be last
   app.use(do404(app));
   app.use(doErrors(app));
@@ -59,15 +62,70 @@ function introPage(app) {
   };
 }
 
+/*
 function ssGet(app) {
     return async function(req, res) {
-         res.send(app.locals.mustache.render('intro', {intro: [{msg: "Hello World", }] }));
+         
+         res.send(app.locals.mustache.render('update', {update: [{spreadsheetName: currSS, }], tablerow: [{CellValue: 5, Testing: 7}, {CellValue: 8, Testing: 1}, {CellValue: "Hey!", Testing: "Tot" }]}));
+  };
+}
+*/
+
+function ssGet(app) {
+    return async function(req, res) {
+    	const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
+    
+    	 const updater = [{spreadsheetName: req.url.substring(req.url.lastIndexOf('/') + 1)}];
+         const tabler = [];
+         for(let i=1; i<11; i++) {
+           const tablec = [];
+           for(let j=97; j < 108; j++) {
+	     const cellID = String.fromCharCode(j) + i;
+	     const query = mySp.query(cellID);
+             if(query.formula == "" || query.formula == null) {
+               console.log("Empty: " + query.formula);
+             	tablec.push({CellValue: "."});
+             }
+             else {
+               console.log("Not empty: " + query.formula);
+               tablec.push({CellValue: query.value});
+             }
+           }
+           tabler.push({tablecol: tablec});
+           //console.log(tabler[i]);
+         }
+         
+         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler}));
   };
 }
 
+async function updateFunc(app, cellToUpdate, formula, action, req) {
+    const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
+      if(action == "clear") return await mySp.clear();
+      else if(action == "deleteCell") return await mySp.delete(cellToUpdate);
+      else if(action == "updateCell") return await mySp.eval(cellToUpdate, formula);
+      else return await mySp.copy(cellToUpdate, formula);
+}
+
+function ssUpdate(app) {
+  return async function(req, res) {
+    const cellToUpdate = req.body["cellId"];
+    const formula = req.body["formula"];
+    const action = req.body['ssAct'];
+    if(action == "") console.log("Error: Must select radio button!");
+    else await updateFunc(app, cellToUpdate, formula, action, req)
+    .then(res.redirect(`/ss/${req.url.substring(req.url.lastIndexOf('/') + 1)}`));
+    
+  }
+}
+
+
 function introSubmit(app) {
     return async function(req, res) {
-    	res.redirect(`/ss/${req.body["ssName"]}`);
+    	const ssName = req.body["ssName"];
+    	//if(validateField(ssName, )
+    	//currSS = ssName;
+    	res.redirect(`/ss/${ssName}`);
     	//app.get(`/ss/${req.body["ssName"]}`);
     }
 }
