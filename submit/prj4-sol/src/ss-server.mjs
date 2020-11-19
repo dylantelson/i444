@@ -122,6 +122,7 @@ function ssGet(app) {
            else if(errorType === "formula") formulaErr = pageErrors[errorType];
            else if(errorType === "ssAct") actErr = pageErrors[errorType];
          }
+         pageErrors = {};
          res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef, ActionError: actErr, CellError: cellErr, FormulaError: formulaErr}));
   };
 }
@@ -133,8 +134,14 @@ async function updateFunc(app, cellToUpdate, formula, action, req) {
     	const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
      	 if(action === "clear") return await mySp.clear();
      	 else if(action === "deleteCell") return await mySp.delete(cellToUpdate);
-     	 else if(action === "updateCell") return await mySp.eval(cellToUpdate, formula);
-     	 else return await mySp.copy(cellToUpdate, formula);
+     	 else if(action === "updateCell") {
+     	   try {
+     	 	return await mySp.eval(cellToUpdate, formula);
+     	   }
+     	   catch(err) {
+     	     pageErrors = {formula: err};
+     	   }
+     	 } else return await mySp.copy(cellToUpdate, formula);
      } else {
          pageErrors = errors;
          ssGet(app);
