@@ -21,8 +21,11 @@ const NOT_FOUND = 404;
 const CONFLICT = 409;
 const SERVER_ERROR = 500;
 
-let currSS = "testSpreadsheet";
 let pageErrors = {};
+
+let lastAction = "";
+let lastCell = "";
+let lastFormula = "";
 
 const __dirname = Path.dirname(new URL(import.meta.url).pathname);
 
@@ -102,12 +105,10 @@ function ssGet(app) {
              	tablec.push({CellValue: ""});
              }
              else {
-               console.log("Not empty: " + query.formula);
                tablec.push({CellValue: query.value});
              }
            }
            tabler.push({tablecol: tablec, RowNum: i});
-           //console.log(tabler[i]);
          }
          const tablef = [{HeaderValue: req.url.substring(req.url.lastIndexOf('/') + 1)}];
          for(let i = 97; i < currLargestAsciiRow+1; i++) {
@@ -116,14 +117,20 @@ function ssGet(app) {
          let cellErr = "";
          let formulaErr = "";
          let actErr = "";
+         
+         let checked = ["", "", "", ""];
+         if(lastAction === "clear") checked[0] = 'checked = "checked"';
+         else if(lastAction === "deleteCell") checked[1] = 'checked = "checked"';
+         else if(lastAction === "updateCell") checked[2] = 'checked = "checked"';
+         else if(lastAction === "copyCell") checked[3] = 'checked = "checked"';
+         
          for(const errorType in pageErrors) {
-           console.log("Error: " + pageErrors[errorType]);
            if(errorType === "cellId") cellErr = pageErrors[errorType];
            else if(errorType === "formula") formulaErr = pageErrors[errorType];
            else if(errorType === "ssAct") actErr = pageErrors[errorType];
          }
          pageErrors = {};
-         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef, ActionError: actErr, CellError: cellErr, FormulaError: formulaErr}));
+         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef, ActionError: actErr, CellError: cellErr, FormulaError: formulaErr, LastCell: lastCell, LastFormula: lastFormula, Checked1: checked[0], Checked2: checked[1], Checked3: checked[2], Checked4: checked[3]}));
   };
 }
 
@@ -132,29 +139,40 @@ async function updateFunc(app, cellToUpdate, formula, action, req) {
     if(validateUpdate({"ssAct": action, "formula": formula, "cellId": cellToUpdate}, errors)) {
     
     	const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
-     	 if(action === "clear") return await mySp.clear();
-     	 else if(action === "deleteCell") return await mySp.delete(cellToUpdate);
+     	 if(action === "clear") return mySp.clear();
+     	 else if(action === "deleteCell") return mySp.delete(cellToUpdate);
      	 else if(action === "updateCell") {
      	   try {
-     	 	return await mySp.eval(cellToUpdate, formula);
+     	 	await mySp.eval(cellToUpdate, formula);
      	   }
      	   catch(err) {
      	     pageErrors = {formula: err};
+     	     lastAction = action;
+             lastCell = cellToUpdate;
+             lastFormula = formula;
+     	     return;
      	   }
-     	 } else return await mySp.copy(cellToUpdate, formula);
+     	 } else await mySp.copy(cellToUpdate, formula);
+     	 lastAction = "";
+     	 lastCell = "";
+     	 lastFormula = "";
+     	 return;
      } else {
          pageErrors = errors;
+         lastAction = action;
+         lastCell = cellToUpdate;
+         lastFormula = formula;
          ssGet(app);
+         return;
      }
 }
 
 function ssUpdate(app) {
   return async function(req, res) {
-    const cellToUpdate = req.body["cellId"];
-    const formula = req.body["formula"];
+    const cellToUpdate = req.body["cellId"].trim();
+    const formula = req.body["formula"].trim();
     const action = req.body['ssAct'];
-    if(action == "") console.log("Error: Must select radio button!");
-    else await updateFunc(app, cellToUpdate, formula, action, req)
+    await updateFunc(app, cellToUpdate, formula, action, req)
     .then(setTimeout(function(){ res.redirect(`/ss/${req.url.substring(req.url.lastIndexOf('/') + 1)}`)}, 50));
   }
 }

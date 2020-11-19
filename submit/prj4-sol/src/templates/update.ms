@@ -28,19 +28,19 @@
     <span>
       <fieldset>
         <div>
-          <input name="ssAct" type="radio" id="actClear" value="clear">
+          <input name="ssAct" type="radio" id="actClear" value="clear" {{Checked1}}>
           <label for="actClear">Clear Spreadsheet</label>
         </div>
         <div>
-          <input name="ssAct" type="radio" id="actDelete" value="deleteCell">
+          <input name="ssAct" type="radio" id="actDelete" value="deleteCell" {{Checked2}}>
           <label for="actDelete">Delete Cell</label>
         </div>
         <div>
-          <input name="ssAct" type="radio" id="actUpdate" value="updateCell">
+          <input name="ssAct" type="radio" id="actUpdate" value="updateCell" {{Checked3}} >
           <label for="actUpdate">Update Cell</label>
         </div>
         <div>
-          <input name="ssAct" type="radio" id="actCopy" value="copyCell">
+          <input name="ssAct" type="radio" id="actCopy" value="copyCell" {{Checked4}}>
           <label for="actCopy">Copy Cell</label>
         </div>
       </fieldset>
@@ -49,13 +49,13 @@
     </span>
     <label for="cellId">Destination Cell ID</label>
     <span>
-      <input name="cellId" value id="cellId">
+      <input name="cellId" value="{{LastCell}}" id="cellId">
       <br>
       <span class="error" id="cellIdError">{{CellError}}</span>
     </span>
     <label for="formula">Formula</label>
     <span>
-      <input name="formula" value id="formula">
+      <input name="formula" value="{{LastFormula}}" id="formula">
       <br>
       <span class="error" id="formulaError">{{FormulaError}}</span>
     </span>
