@@ -11,8 +11,12 @@
   </p>
   <table class="ss">
     <tbody>
+    <tr>
+      {{#tablefirst}}<th>{{HeaderValue}}</th>{{/tablefirst}}
+    </tr>
       {{#tablerow}}
       <tr>
+        <th>{{RowNum}}</th>
         {{#tablecol}}<td>{{CellValue}}</td>{{/tablecol}}
       </tr>
       {{/tablerow}}

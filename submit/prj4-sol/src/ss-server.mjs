@@ -62,45 +62,52 @@ function introPage(app) {
   };
 }
 
-/*
-function ssGet(app) {
-    return async function(req, res) {
-         
-         res.send(app.locals.mustache.render('update', {update: [{spreadsheetName: currSS, }], tablerow: [{CellValue: 5, Testing: 7}, {CellValue: 8, Testing: 1}, {CellValue: "Hey!", Testing: "Tot" }]}));
-  };
-}
-*/
-
 function ssGet(app) {
     return async function(req, res) {
     	const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
     
     	 const updater = [{spreadsheetName: req.url.substring(req.url.lastIndexOf('/') + 1)}];
          const tabler = [];
-         for(let i=1; i<11; i++) {
+         const myDump = mySp.dump();
+         const myCells = [];
+         let currLargestAsciiRow = 108;
+         let currLargestCol = 11;
+         for(let i=0; i < myDump.length; i++) {
+           myCells.push(myDump[i][0]);
+           if(myDump[i][0].charCodeAt(0) > currLargestAsciiRow)
+           	currLargestAsciiRow = myDump[i][0].charCodeAt(0);
+           if(parseInt(myDump[i][0].substring(1)) > currLargestCol)
+           	currLargestCol = parseInt(myDump[i][0].substring(1));
+         }
+         for(let i=1; i<currLargestCol+1; i++) {
            const tablec = [];
-           for(let j=97; j < 108; j++) {
+           for(let j=97; j < currLargestAsciiRow+1; j++) {
 	     const cellID = String.fromCharCode(j) + i;
 	     const query = mySp.query(cellID);
              if(query.formula == "" || query.formula == null) {
-               console.log("Empty: " + query.formula);
-             	tablec.push({CellValue: "."});
+               //console.log("Empty: " + query.formula);
+             	tablec.push({CellValue: ""});
              }
              else {
                console.log("Not empty: " + query.formula);
                tablec.push({CellValue: query.value});
              }
            }
-           tabler.push({tablecol: tablec});
+           tabler.push({tablecol: tablec, RowNum: i});
            //console.log(tabler[i]);
          }
+         const tablef = [{HeaderValue: req.url.substring(req.url.lastIndexOf('/') + 1)}];
+         for(let i = 97; i < currLargestAsciiRow+1; i++) {
+           tablef.push({HeaderValue: String.fromCharCode(i)});
+         }
          
-         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler}));
+         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef}));
   };
 }
 
 async function updateFunc(app, cellToUpdate, formula, action, req) {
     const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
+    console.log(mySp.dump());
       if(action == "clear") return await mySp.clear();
       else if(action == "deleteCell") return await mySp.delete(cellToUpdate);
       else if(action == "updateCell") return await mySp.eval(cellToUpdate, formula);
@@ -156,10 +163,7 @@ function doErrors(app) {
 
 /************************* SS View Generation **************************/
 
-const MIN_ROWS = 10;
-const MIN_COLS = 10;
-
-//@TODO add functions to build a spreadsheet view suitable for mustache
+//did the SS view generation in the handler for ssGet(app)
 
 /**************************** Validation ********************************/
 
