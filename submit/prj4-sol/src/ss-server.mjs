@@ -129,8 +129,17 @@ function ssGet(app) {
            else if(errorType === "formula") formulaErr = pageErrors[errorType];
            else if(errorType === "ssAct") actErr = pageErrors[errorType];
          }
+         
+         const localLastFormula = lastFormula;
+         const localLastCell = lastCell;
+         
+         lastAction = "";
+         lastFormula = "";
+         lastCell = "";
+         
          pageErrors = {};
-         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef, ActionError: actErr, CellError: cellErr, FormulaError: formulaErr, LastCell: lastCell, LastFormula: lastFormula, Checked1: checked[0], Checked2: checked[1], Checked3: checked[2], Checked4: checked[3]}));
+         
+         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef, ActionError: actErr, CellError: cellErr, FormulaError: formulaErr, LastCell: localLastCell, LastFormula: localLastFormula, Checked1: checked[0], Checked2: checked[1], Checked3: checked[2], Checked4: checked[3]}));
   };
 }
 
