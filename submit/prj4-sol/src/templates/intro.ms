@@ -11,7 +11,7 @@
     <span>
       <input name="ssName" value id="ssName">
       <br>
-      <span class="error" id="ssNameError"></span>
+      <span class="error" id="ssNameError">{{Error}}</span>
     </span>
     <input type="submit" value="Open">
   </form>

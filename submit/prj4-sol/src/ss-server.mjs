@@ -22,6 +22,7 @@ const CONFLICT = 409;
 const SERVER_ERROR = 500;
 
 let currSS = "testSpreadsheet";
+let pageErrors = {};
 
 const __dirname = Path.dirname(new URL(import.meta.url).pathname);
 
@@ -62,6 +63,18 @@ function introPage(app) {
   };
 }
 
+function introSubmit(app) {
+    return async function(req, res) {
+    	const ssName = req.body["ssName"];
+    	const errors = {};
+    	if(validateField("ssName", {"ssName": ssName}, errors))
+    	    res.redirect(`/ss/${ssName}`);
+    	else {
+    	  res.send(app.locals.mustache.render('intro', {intro: [{msg: "Hello World", Error: errors["ssName"]}]}));
+    	}
+    }
+}
+
 function ssGet(app) {
     return async function(req, res) {
     	const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
@@ -100,18 +113,32 @@ function ssGet(app) {
          for(let i = 97; i < currLargestAsciiRow+1; i++) {
            tablef.push({HeaderValue: String.fromCharCode(i)});
          }
-         
-         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef}));
+         let cellErr = "";
+         let formulaErr = "";
+         let actErr = "";
+         for(const errorType in pageErrors) {
+           console.log("Error: " + pageErrors[errorType]);
+           if(errorType === "cellId") cellErr = pageErrors[errorType];
+           else if(errorType === "formula") formulaErr = pageErrors[errorType];
+           else if(errorType === "ssAct") actErr = pageErrors[errorType];
+         }
+         res.send(app.locals.mustache.render('update', {update: updater, tablerow: tabler, tablefirst: tablef, ActionError: actErr, CellError: cellErr, FormulaError: formulaErr}));
   };
 }
 
 async function updateFunc(app, cellToUpdate, formula, action, req) {
-    const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
-    console.log(mySp.dump());
-      if(action == "clear") return await mySp.clear();
-      else if(action == "deleteCell") return await mySp.delete(cellToUpdate);
-      else if(action == "updateCell") return await mySp.eval(cellToUpdate, formula);
-      else return await mySp.copy(cellToUpdate, formula);
+    const errors = {}
+    if(validateUpdate({"ssAct": action, "formula": formula, "cellId": cellToUpdate}, errors)) {
+    
+    	const mySp = await Spreadsheet.make(req.url.substring(req.url.lastIndexOf('/') + 1), app.locals.store);
+     	 if(action === "clear") return await mySp.clear();
+     	 else if(action === "deleteCell") return await mySp.delete(cellToUpdate);
+     	 else if(action === "updateCell") return await mySp.eval(cellToUpdate, formula);
+     	 else return await mySp.copy(cellToUpdate, formula);
+     } else {
+         pageErrors = errors;
+         ssGet(app);
+     }
 }
 
 function ssUpdate(app) {
@@ -121,20 +148,8 @@ function ssUpdate(app) {
     const action = req.body['ssAct'];
     if(action == "") console.log("Error: Must select radio button!");
     else await updateFunc(app, cellToUpdate, formula, action, req)
-    .then(res.redirect(`/ss/${req.url.substring(req.url.lastIndexOf('/') + 1)}`));
-    
+    .then(setTimeout(function(){ res.redirect(`/ss/${req.url.substring(req.url.lastIndexOf('/') + 1)}`)}, 50));
   }
-}
-
-
-function introSubmit(app) {
-    return async function(req, res) {
-    	const ssName = req.body["ssName"];
-    	//if(validateField(ssName, )
-    	//currSS = ssName;
-    	res.redirect(`/ss/${ssName}`);
-    	//app.get(`/ss/${req.body["ssName"]}`);
-    }
 }
 
 /** Default handler for when there is no route for a particular method
