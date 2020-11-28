@@ -20,12 +20,36 @@ export default class Spreadsheet extends React.Component {
   constructor(props) {
     super(props);
     this.props = props;
+    this.update = this.update.bind(this);
+    this.focusHandler = this.focusHandler.bind(this);
     this.state = {
       counter: 0,
       currFocused: "",
       currCopied: "",
-      errorMessage: ""
+      errorMessage: "",
+      inputFormula: ""
     };
+  }
+  
+  contextHandler(event) {
+    console.log("context");
+  };
+  
+  focusHandler(event) {
+    console.log("changing to " + this.props.spreadsheet.query(event.target.dataset.cellid).formula);
+    this.setState({counter: this.state.counter, currFocused: event.target.dataset.cellid, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(event.target.dataset.cellid).formula});
+    event.target.className = "focused";
+  };
+  
+  update(inputFormula, event) {
+    console.log("updating with value " + inputFormula);
+    console.log("from cell " + this.state.currFocused);
+    try {
+      this.props.spreadsheet.eval(this.state.currFocused, inputFormula);
+      this.setState({counter: this.state.counter, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
+    } catch(error) {
+      console.log(error);
+    }
   }
 
   //@TODO
@@ -42,10 +66,22 @@ export default class Spreadsheet extends React.Component {
     for(let i=0; i<numOfBodyRows; i++) {
       const tcolHTML = [];
       for(let j=0; j<numOfBodyCols; j++) {
+        const currCell = theadValues[j+1].toLowerCase() + (i+1).toString();
+        const currCellParams = this.props.spreadsheet.query(currCell);
         //perhaps remove the toLowerCase(), as I don't think it's necessary
         //as the parser should see no difference between i.e. a1 and A1
         //we do +1 because theadValues has a first index of the ssName, which we won't use here
-        tcolHTML.push(<td data-cellid={theadValues[j+1].toLowerCase()} class tabindex={theadValues[j+1]} title="NA">NA</td>);
+        //tcolHTML.push(<td data-cellid={theadValues[j+1].toLowerCase() + theadValues[j+1].toString()} class tabindex={theadValues[j+1]} title="NA">NA</td>);
+        const params = {
+          cellId: currCell,
+          formula: currCellParams.formula,
+          value: currCellParams.value,
+          onContextMenu: this.contextHandler,
+          onFocus: this.focusHandler,
+          className: "",
+          tabIndex: i+1
+        };
+        tcolHTML.push(SSCell(params));
       }
       trowHTML.push(
         <tr>
@@ -54,20 +90,24 @@ export default class Spreadsheet extends React.Component {
         </tr>
       );
     }
+    console.log(this.props.spreadsheet.query(this.state.currFocused).formula);
     
     return (
-      <table className="ss">
-        <thead>
-          <tr>
-            {theadValues.map(theader => (
-              <th>{theader}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {trowHTML}
-        </tbody>
-      </table>
+      <div>
+        <SingleInput id={this.state.currFocused} label={this.state.currFocused} value={this.props.spreadsheet.query(this.state.currFocused).formula} update={this.update}/>
+        <table className="ss">
+          <thead>
+            <tr>
+              {theadValues.map(theader => (
+                <th>{theader}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {trowHTML}
+          </tbody>
+        </table>
+      </div>
     );
   }
 

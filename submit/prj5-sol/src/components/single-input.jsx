@@ -23,7 +23,7 @@ export default class SingleInput extends React.Component {
     console.log("val = " + props.value);
     this.state = {
       value: props.value != null ? props.value : "",
-      error: ""      
+      error: ""
     };
   }
   
@@ -34,12 +34,9 @@ export default class SingleInput extends React.Component {
   handleSubmit(event) {
     event.preventDefault();
     try {
-      const ssNameInput = this.state.value.trim();
-      if(ssNameInput=="") return;
-      if(RegExp("^[a-zA-Z0-9 _-]*$").test(ssNameInput))
-      	this.props.update(ssNameInput);
-      else
-      	throw "Input must be alphanumeric!"
+      const input = this.state.value.trim();
+      if(input=="") return;
+      this.props.update(input, event);
     } catch(error) {
       this.setState({value: this.state.value, error: error});
     }
