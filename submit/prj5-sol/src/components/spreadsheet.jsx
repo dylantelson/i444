@@ -22,6 +22,10 @@ export default class Spreadsheet extends React.Component {
     this.props = props;
     this.update = this.update.bind(this);
     this.focusHandler = this.focusHandler.bind(this);
+    this.clearHandler = this.clearHandler.bind(this);
+    this.formulaSingleInputRef = React.createRef();
+    this.lastFocused = null;
+    this.clear = this.clear.bind(this);
     this.state = {
       counter: 0,
       currFocused: "",
@@ -36,19 +40,31 @@ export default class Spreadsheet extends React.Component {
   };
   
   focusHandler(event) {
-    console.log("changing to " + this.props.spreadsheet.query(event.target.dataset.cellid).formula);
-    this.setState({counter: this.state.counter, currFocused: event.target.dataset.cellid, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(event.target.dataset.cellid).formula});
+    if(this.lastFocused != null) this.lastFocused.className = "";
     event.target.className = "focused";
+    this.lastFocused = event.target;
+    this.setState({counter: this.state.counter, currFocused: event.target.dataset.cellid, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(event.target.dataset.cellid).formula});
+    if(this.formulaSingleInputRef) this.formulaSingleInputRef.current.switchCells(this.props.spreadsheet.query(event.target.dataset.cellid).formula);
   };
   
-  update(inputFormula, event) {
-    console.log("updating with value " + inputFormula);
-    console.log("from cell " + this.state.currFocused);
+  clearHandler(event) {
+    event.preventDefault();
+    
+    let clearFunc = this.clear;
+    popupMenu(   event,     {menuItems:  [ {menuLabel: "Clear", menuItemFn: clearFunc}  ] }   );
+  };
+  
+  async clear() {
+    await this.props.spreadsheet.clear();
+    this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.state.inputFormula});
+  }
+  
+  async update(inputFormula, event) {
     try {
-      this.props.spreadsheet.eval(this.state.currFocused, inputFormula);
-      this.setState({counter: this.state.counter, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
+      await this.props.spreadsheet.eval(this.state.currFocused, inputFormula);
+      this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
     } catch(error) {
-      console.log(error);
+      throw error.toString();
     }
   }
 
@@ -90,15 +106,15 @@ export default class Spreadsheet extends React.Component {
         </tr>
       );
     }
-    console.log(this.props.spreadsheet.query(this.state.currFocused).formula);
     
     return (
       <div>
-        <SingleInput id={this.state.currFocused} label={this.state.currFocused} value={this.props.spreadsheet.query(this.state.currFocused).formula} update={this.update}/>
+        <SingleInput ref={this.formulaSingleInputRef} id="formulaInput" label={this.state.currFocused} value={this.state.inputFormula} update={this.update}/>
         <table className="ss">
           <thead>
             <tr>
-              {theadValues.map(theader => (
+              <th onContextMenu={this.clearHandler}>{theadValues[0]}</th>
+              {theadValues.filter((theader, i) => i>0).map(theader => (
                 <th>{theader}</th>
               ))}
             </tr>

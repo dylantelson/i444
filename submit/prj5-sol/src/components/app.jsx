@@ -40,10 +40,7 @@ export default class App extends React.Component {
       const newSS = await Spreadsheet.make(ssName);
       this.setState({ssName: ssName, spreadsheet: newSS});
     } else {
-      console.log("Invalid input, must be alphanumeric!");
-      //unfortunately it does not seem like I can use event to get the error to show
-      //I should delete event from here and the other 2 component files if I dont end up using it
-      console.log(event.target);
+      throw "Invalid input, must be alphanumeric!";
     }
   }
 
