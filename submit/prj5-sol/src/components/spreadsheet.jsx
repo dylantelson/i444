@@ -90,7 +90,6 @@ export default class Spreadsheet extends React.Component {
     this.setState({counter: this.state.counter, currFocused: this.state.currFocused, currCopied: cellId, errorMessage: this.state.errorMessage, inputFormula: this.state.inputFormula});
   }
   async pasteCell(cellId) {
-    console.log("pasted " + this.state.currCopied + "'s formula into " + cellId);
     await this.props.spreadsheet.eval(cellId, this.props.spreadsheet.query(this.state.currCopied).formula);
     this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
     }

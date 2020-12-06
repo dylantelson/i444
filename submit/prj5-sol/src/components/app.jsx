@@ -2,7 +2,7 @@
 
 import SingleInput from './single-input.jsx';
 import {Spreadsheet} from 'cs544-ss';
-import {DBSSStore} from 'cs544-ss';
+import SSClient from './../lib/ss-client.mjs';
 import SS from './spreadsheet.jsx';
 
 import React from 'react';
@@ -12,6 +12,8 @@ import ReactDom from 'react-dom';
 /*************************** App Component ***************************/
 
 const STORE = window.localStorage;
+
+const ssClient = new SSClient("http://localhost:2345");
 
 export default class App extends React.Component {
 
@@ -33,11 +35,8 @@ export default class App extends React.Component {
 
 
   async update(ssName, event) {
-    console.log("updating " + ssName);
-    
     if(RegExp("^[a-zA-Z0-9 _-]*$").test(ssName)) {
-      console.log("left hea");
-      const newSS = await Spreadsheet.make(ssName, DBSSStore);
+      const newSS = await Spreadsheet.make(ssName, ssClient);
       this.setState({ssName: ssName, spreadsheet: newSS});
     } else {
       throw "Invalid input, must be alphanumeric!";
