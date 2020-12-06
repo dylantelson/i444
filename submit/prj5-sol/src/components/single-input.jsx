@@ -26,10 +26,14 @@ export default class SingleInput extends React.Component {
     };
   }
   
+  //each time the input in the textbox changes, we update the value in the state
   handleChange(event) {
     this.setState({value: event.target.value, error: this.props.error});
   };
   
+  //when the input is submitted (either by submitting the form or blurring from the textbox),
+  //we send it to the update function in the parent component (either app or spreadsheet).
+  //we check for errors the parent update function may throw, and display the error if any come.
   async handleSubmit(event) {
     event.preventDefault();
     try {
@@ -41,6 +45,8 @@ export default class SingleInput extends React.Component {
     }
   };
   
+  //this must be here to change the value to the newly selected cell's value.
+  //it is called by the parent through a ref whenever a cell is clicked on. 
   switchCells(chosenCellFormula) {
     this.setState({value: chosenCellFormula, error: ""});
   }

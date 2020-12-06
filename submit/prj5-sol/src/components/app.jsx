@@ -13,6 +13,7 @@ import ReactDom from 'react-dom';
 
 const STORE = window.localStorage;
 
+//ssClient used to connect to project 3 web services on localhost
 const ssClient = new SSClient("http://localhost:2345");
 
 export default class App extends React.Component {
@@ -34,6 +35,7 @@ export default class App extends React.Component {
   }
 
 
+  //update the spreadsheet if the ssname is valid, otherwise, throw an error
   async update(ssName, event) {
     if(RegExp("^[a-zA-Z0-9 _-]*$").test(ssName)) {
       const newSS = await Spreadsheet.make(ssName, ssClient);

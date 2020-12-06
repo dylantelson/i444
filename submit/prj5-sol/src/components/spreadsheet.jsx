@@ -17,6 +17,7 @@ const COL_HDRS = Array.from({length: N_COLS}).
 
 export default class Spreadsheet extends React.Component {
 
+  //lots of binds to make sure (this) works correctly in functions
   constructor(props) {
     super(props);
     this.props = props;
@@ -40,6 +41,9 @@ export default class Spreadsheet extends React.Component {
     };
   }
   
+  //handler that deals with changing the focus on the spreadsheet
+  //updates the previously last-focused cell to make it not highlighted,
+  //and ensures that if it is the copied cell, to stay outlined green
   focusHandler(event) {
     if(this.lastFocused != null) {
       if(this.lastFocused == this.lastCopied) this.lastFocused.className = "copied";
@@ -51,6 +55,10 @@ export default class Spreadsheet extends React.Component {
     if(this.formulaSingleInputRef) this.formulaSingleInputRef.current.switchCells(this.props.spreadsheet.query(event.target.dataset.cellid).formula);
   };
   
+  //handler that deals with right clicks on cells.
+  //if the current cell doesn't have a value, we don't
+  //let it be copied or deleted and keep those options uninteractable.
+  //If there is no currently copied cell, then paste is not interactable.
   contextHandler(event) {
     event.preventDefault();
     
@@ -61,6 +69,12 @@ export default class Spreadsheet extends React.Component {
     const pasteFunc = this.state.currCopied != null ? this.pasteCell : null;
     const deleteFunc = currCellFormula != "" ? this.deleteCell : null;
 
+    //we open the popupMenu.
+    //ternary operators to choose between the option of interactable or not,
+    //as described in the above comments.
+    //menuLabel is the option text that the user sees,
+    //menuItemFn is the function that option executes when clicked,
+    //and menuItemFnArgs are the arguments passed to that function.
     popupMenu(event,
       {menuItems: [
         {menuLabel: currCellFormula != "" ? "Copy " + currCell : "Copy", menuItemFn: copyFunc, menuItemFnArgs: [currCell, event]},
@@ -70,18 +84,30 @@ export default class Spreadsheet extends React.Component {
     );
   };
   
+  //this is the handler for if the top-left ssName cell is clicked.
+  //it gives a menu option for clearing, which clears the spreadsheet when clicked.
   clearHandler(event) {
     event.preventDefault();
     
     let clearFunc = this.clear;
-    popupMenu(   event,     {menuItems:  [ {menuLabel: "Clear", menuItemFn: clearFunc}  ] }   );
+    popupMenu(
+      event,
+      {menuItems: [
+        {menuLabel: "Clear", menuItemFn: clearFunc}
+      ]}
+    );
   };
   
+  //function called by the clear menu option in clearHandler.
+  //clears spreadsheet, then updates state
   async clear() {
     await this.props.spreadsheet.clear();
     this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.state.inputFormula});
   }
   
+  //function called by the copy menu option in contextHandler.
+  //makes sure outline is removed from previous copied (if there was one),
+  //then updates the copied cell to itself.
   async copyCell(cellId, event) {
     if(this.lastCopied != null) this.lastCopied.className = "";
     event.target.className = "copied";
@@ -89,16 +115,24 @@ export default class Spreadsheet extends React.Component {
     
     this.setState({counter: this.state.counter, currFocused: this.state.currFocused, currCopied: cellId, errorMessage: this.state.errorMessage, inputFormula: this.state.inputFormula});
   }
+  
+  //function called by the paste menu option in contextHandler.
+  //pastes the currently copied cell's formula into the right-clicked cell.
   async pasteCell(cellId) {
     await this.props.spreadsheet.eval(cellId, this.props.spreadsheet.query(this.state.currCopied).formula);
     this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
     }
   
+  //function called by the delete menu option in contextHandler.
+  //deletes the interacted-with cell.
   async deleteCell(cellId) {
     await this.props.spreadsheet.delete(cellId);
       this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
   }
   
+  //updates the currently focused cell's formula to the value currently
+  //in the formula single-input. If an error occurs, it throws so that
+  //the single-input can show the error to the user.
   async update(inputFormula, event) {
     try {
       await this.props.spreadsheet.eval(this.state.currFocused, inputFormula);
@@ -107,25 +141,24 @@ export default class Spreadsheet extends React.Component {
       throw error.toString();
     }
   }
-
+  
   render() {
-    //note: numOfBodyRows excludes the top row (thead), hence the name
+    //numOfBodyRows excludes the top row (thead), hence the name
     //same with numOfBodyCols excluding the left-most column
-    
     const theadValues = [this.props.spreadsheet.name, "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
     
     const numOfBodyRows = 10;
     const numOfBodyCols = 10;
+    
+    //trowHTML is the HTML that will be rendered for each table-row
+    //for each row, we go through the cells from left-to-right and push
+    //it to tcolHTML, which is then added to the trowHTML.
     const trowHTML = [];
     for(let i=0; i<numOfBodyRows; i++) {
       const tcolHTML = [];
       for(let j=0; j<numOfBodyCols; j++) {
-        const currCell = theadValues[j+1].toLowerCase() + (i+1).toString();
+        const currCell = theadValues[j+1] + (i+1).toString();
         const currCellParams = this.props.spreadsheet.query(currCell);
-        //perhaps remove the toLowerCase(), as I don't think it's necessary
-        //as the parser should see no difference between i.e. a1 and A1
-        //we do +1 because theadValues has a first index of the ssName, which we won't use here
-        //tcolHTML.push(<td data-cellid={theadValues[j+1].toLowerCase() + theadValues[j+1].toString()} class tabindex={theadValues[j+1]} title="NA">NA</td>);
         const params = {
           cellId: currCell,
           formula: currCellParams.formula,
@@ -144,7 +177,7 @@ export default class Spreadsheet extends React.Component {
         </tr>
       );
     }
-    
+    //we render the html, including the table, that was created above
     return (
       <div>
         <SingleInput ref={this.formulaSingleInputRef} id="formulaInput" label={this.state.currFocused} value={this.state.inputFormula} update={this.update}/>
