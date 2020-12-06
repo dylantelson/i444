@@ -42,7 +42,7 @@ export default class SingleInput extends React.Component {
   };
   
   switchCells(chosenCellFormula) {
-    this.setState({value: chosenCellFormula, error: this.state.error});
+    this.setState({value: chosenCellFormula, error: ""});
   }
 
   render() {
@@ -53,7 +53,7 @@ export default class SingleInput extends React.Component {
           <span>
             <input id={this.id} value={this.state.value} onBlur={this.handleSubmit} onChange={this.handleChange}/>
             <br/>
-            <span className="error" style={{ color: 'red' }}>{this.state.error}</span>
+            <span className="error">{this.state.error}</span>
           </span>
         </form>
       </div>

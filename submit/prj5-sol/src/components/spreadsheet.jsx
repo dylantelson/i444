@@ -23,28 +23,51 @@ export default class Spreadsheet extends React.Component {
     this.update = this.update.bind(this);
     this.focusHandler = this.focusHandler.bind(this);
     this.clearHandler = this.clearHandler.bind(this);
+    this.contextHandler = this.contextHandler.bind(this);
+    this.copyCell = this.copyCell.bind(this);
+    this.pasteCell = this.pasteCell.bind(this);
+    this.deleteCell = this.deleteCell.bind(this);
     this.formulaSingleInputRef = React.createRef();
+    this.lastCopied = null;
     this.lastFocused = null;
     this.clear = this.clear.bind(this);
     this.state = {
       counter: 0,
       currFocused: "",
-      currCopied: "",
+      currCopied: null,
       errorMessage: "",
       inputFormula: ""
     };
   }
   
-  contextHandler(event) {
-    console.log("context");
-  };
-  
   focusHandler(event) {
-    if(this.lastFocused != null) this.lastFocused.className = "";
+    if(this.lastFocused != null) {
+      if(this.lastFocused == this.lastCopied) this.lastFocused.className = "copied";
+      else this.lastFocused.className = "";
+    }
     event.target.className = "focused";
     this.lastFocused = event.target;
     this.setState({counter: this.state.counter, currFocused: event.target.dataset.cellid, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(event.target.dataset.cellid).formula});
     if(this.formulaSingleInputRef) this.formulaSingleInputRef.current.switchCells(this.props.spreadsheet.query(event.target.dataset.cellid).formula);
+  };
+  
+  contextHandler(event) {
+    event.preventDefault();
+    
+    const currCell = event.target.dataset.cellid;
+    const currCellFormula = this.props.spreadsheet.query(currCell).formula;
+    
+    const copyFunc = currCellFormula != "" ? this.copyCell : null;
+    const pasteFunc = this.state.currCopied != null ? this.pasteCell : null;
+    const deleteFunc = currCellFormula != "" ? this.deleteCell : null;
+
+    popupMenu(event,
+      {menuItems: [
+        {menuLabel: currCellFormula != "" ? "Copy " + currCell : "Copy", menuItemFn: copyFunc, menuItemFnArgs: [currCell, event]},
+        {menuLabel: this.state.currCopied != null ? "Paste " + this.state.currCopied + " into " + currCell : "Paste", menuItemFn: pasteFunc, menuItemFnArgs: [currCell]},
+        {menuLabel: currCellFormula != "" ? "Delete " + currCell : "Delete", menuItemFn: deleteFunc, menuItemFnArgs: [currCell]}
+      ]}
+    );
   };
   
   clearHandler(event) {
@@ -59,6 +82,24 @@ export default class Spreadsheet extends React.Component {
     this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.state.inputFormula});
   }
   
+  async copyCell(cellId, event) {
+    if(this.lastCopied != null) this.lastCopied.className = "";
+    event.target.className = "copied";
+    this.lastCopied = event.target;
+    
+    this.setState({counter: this.state.counter, currFocused: this.state.currFocused, currCopied: cellId, errorMessage: this.state.errorMessage, inputFormula: this.state.inputFormula});
+  }
+  async pasteCell(cellId) {
+    console.log("pasted " + this.state.currCopied + "'s formula into " + cellId);
+    await this.props.spreadsheet.eval(cellId, this.props.spreadsheet.query(this.state.currCopied).formula);
+    this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
+    }
+  
+  async deleteCell(cellId) {
+    await this.props.spreadsheet.delete(cellId);
+      this.setState({counter: this.state.counter+1, currFocused: this.state.currFocused, currCopied: this.state.currCopied, errorMessage: this.state.errorMessage, inputFormula: this.props.spreadsheet.query(this.state.currFocused).formula});
+  }
+  
   async update(inputFormula, event) {
     try {
       await this.props.spreadsheet.eval(this.state.currFocused, inputFormula);
@@ -67,8 +108,6 @@ export default class Spreadsheet extends React.Component {
       throw error.toString();
     }
   }
-
-  //@TODO
 
   render() {
     //note: numOfBodyRows excludes the top row (thead), hence the name

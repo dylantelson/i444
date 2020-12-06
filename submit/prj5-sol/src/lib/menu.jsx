@@ -40,8 +40,6 @@ const MENU_CLASS = 'menu';
 const MENU_ITEM_CLASS = 'menu-item';
 const MENU_ITEM_INACTIVE_CLASS = 'menu-item-disabled';
 
-let counter = 0;
-
 class MenuItem extends React.Component {
 
   constructor(props) {
@@ -52,7 +50,7 @@ class MenuItem extends React.Component {
 
   clickHandler() {
     this.props.menuSelect();
-    this.props.menuItem.menuItemFn?.(...(this.props.menuItemFnArgs ?? []));
+    this.props.menuItem.menuItemFn?.(...(this.props.menuItem.menuItemFnArgs ?? []));
   }
 
   render() {
